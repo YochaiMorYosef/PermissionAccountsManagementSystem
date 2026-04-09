@@ -1,0 +1,145 @@
+service: permissions-service
+
+frameworkVersion: "3"
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    usePoetry: true
+    slim: true
+    noDeploy:
+      - boto3
+      - botocore
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  timeout: 10
+  environment:
+    PYTHONPATH: /var/task:/opt/python/lib/python3.13/site-packages:/opt/python:/var/runtime:/var/lang/lib/python313.zip:/var/lang/lib/python3.13:/var/lang/lib/python3.13/lib-dynload:/var/lang/lib/python3.13/site-packages:/var/task/src
+    TABLE_NAME: permissions-${self:provider.stage}
+    STAGE: ${self:provider.stage}
+    LOG_LEVEL: INFO
+    QUEUE_URL: !Ref PermissionsQueue
+    PROVISIONING_URL: https://n43ji9wuzd.execute-api.us-east-1.amazonaws.com/dev/provision
+    DEMO_AUTH_TOKEN: demo-secret-token
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - !GetAtt PermissionsTable.Arn
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource:
+            - !GetAtt PermissionsQueue.Arn
+
+package:
+  individually: false
+  patterns:
+    - "!node_modules/**"
+    - "!tests/**"
+    - "!.venv/**"
+    - "!script/**"
+    - "src/**"
+
+functions:
+  createPermission:
+    handler: src/handlers/create_permission.handler
+    events:
+      - http:
+          path: /permissions
+          method: post
+          cors: true
+
+  getPermission:
+    handler: src/handlers/get_permission.handler
+    events:
+      - http:
+          path: /permissions/{permission_id}
+          method: get
+          cors: true
+
+  updatePermission:
+    handler: src/handlers/update_permission.handler
+    events:
+      - http:
+          path: /permissions/{permission_id}
+          method: patch
+          cors: true
+
+  deletePermission:
+    handler: src/handlers/delete_permission.handler
+    events:
+      - http:
+          path: /permissions/{permission_id}
+          method: delete
+          cors: true
+
+  queryPermissions:
+    handler: src/handlers/query_permissions.handler
+    events:
+      - http:
+          path: /permissions
+          method: get
+          cors: true
+
+  getUserPermissions:
+    handler: src/handlers/get_user_permissions.handler
+    events:
+      - http:
+          path: /permissions/me
+          method: get
+          cors: true
+
+  processPermission:
+    handler: src/handlers/process_permission.handler
+    events:
+      - sqs:
+          arn: !GetAtt PermissionsQueue.Arn
+          batchSize: 1
+          maximumBatchingWindow: 0
+
+resources:
+  Resources:
+    PermissionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: permissions-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: tenant_id
+            AttributeType: S
+          - AttributeName: permission_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenant_id
+            KeyType: HASH
+          - AttributeName: permission_id
+            KeyType: RANGE
+
+    PermissionsQueueDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: permissions-queue-dlq-${self:provider.stage}
+
+    PermissionsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: permissions-queue-${self:provider.stage}
+        VisibilityTimeout: 10
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt PermissionsQueueDLQ.Arn
+          maxReceiveCount: 3

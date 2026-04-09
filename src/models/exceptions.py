@@ -1,0 +1,2 @@
+class PermissionNotFoundError(Exception):
+    pass

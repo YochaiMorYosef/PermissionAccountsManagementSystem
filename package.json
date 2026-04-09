@@ -1,0 +1,9 @@
+{
+  "name": "permissions-service",
+  "version": "1.0.0",
+  "description": "Permissions CRUD service",
+  "devDependencies": {
+    "serverless": "npm:osls@~3.62.1",
+    "serverless-python-requirements": "~6.1.2"
+  }
+}

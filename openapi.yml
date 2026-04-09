@@ -1,0 +1,402 @@
+openapi: "3.0.3"
+info:
+  title: Permissions Service API
+  description: |
+    CRUD API for managing user permissions backed by DynamoDB.
+    All endpoints require a valid JWT Bearer token. The `tenant_id` is always
+    resolved from the token and never accepted as a client-provided value.
+
+    ## Async Provisioning Flow
+
+    Create and delete operations are asynchronous. After the API returns, an SQS
+    message triggers a worker Lambda that sends an HTTP request to the configured
+    provisioning URL. The `status` field reflects the current lifecycle state:
+
+    - `Creating` — permission written to DynamoDB, SQS message sent
+    - `Active` — provisioning HTTP call succeeded
+    - `FailedCreating` — provisioning HTTP call failed
+    - `Deleting` — delete accepted, SQS message sent; record still exists
+    - `FailedDeleting` — deprovisioning HTTP call failed
+
+    Only `Active` permissions are returned by `GET /permissions/me`.
+  version: "1.0.0"
+
+servers:
+  - url: https://{api_id}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      api_id:
+        default: your-api-id
+      region:
+        default: us-east-1
+      stage:
+        default: dev
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ScheduleEntry:
+      type: object
+      required:
+        - weekday
+        - start_time
+        - end_time
+      properties:
+        weekday:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: Day of the week (0 = Monday, 6 = Sunday)
+        start_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "09:00"
+          description: Start time in HH:MM format (UTC)
+        end_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "17:00"
+          description: End time in HH:MM format (UTC). May be earlier than start_time for overnight windows.
+
+    PermissionStatus:
+      type: string
+      enum:
+        - Creating
+        - Active
+        - FailedCreating
+        - Deleting
+        - FailedDeleting
+      description: Lifecycle status of the permission, managed by the async provisioning flow.
+
+    Permission:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          description: Tenant identifier (derived from JWT)
+        permission_id:
+          type: string
+          format: uuid
+          description: Unique permission identifier (auto-generated)
+        user:
+          type: string
+          description: User identifier this permission is granted to
+        account_id:
+          type: string
+          description: Account/resource identifier this permission applies to
+        permission:
+          type: string
+          description: The permission type or action being granted
+        status:
+          $ref: '#/components/schemas/PermissionStatus'
+        schedule:
+          type: array
+          nullable: true
+          description: Time windows during which the permission is active. Null means always active.
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+
+    CreatePermissionRequest:
+      type: object
+      required:
+        - user
+        - account_id
+        - permission
+      properties:
+        user:
+          type: string
+        account_id:
+          type: string
+        permission:
+          type: string
+        schedule:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+          description: Omit or set to null for an always-active permission.
+
+    UpdatePermissionRequest:
+      type: object
+      minProperties: 1
+      properties:
+        user:
+          type: string
+        account_id:
+          type: string
+        permission:
+          type: string
+        schedule:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+
+    SuccessResponse:
+      type: object
+      properties:
+        data:
+          description: The response payload
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+
+paths:
+  /permissions:
+    post:
+      summary: Create a permission
+      description: |
+        Creates a new permission. The `tenant_id` is extracted from the JWT token.
+        The returned permission has `status: Creating`. An SQS message is sent to
+        the worker Lambda which calls the provisioning URL and then sets the status
+        to `Active` or `FailedCreating`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePermissionRequest'
+            examples:
+              with_schedule:
+                summary: Permission with a time window
+                value:
+                  user: "alice"
+                  account_id: "account-123"
+                  permission: "read"
+                  schedule:
+                    - weekday: 0
+                      start_time: "09:00"
+                      end_time: "17:00"
+              always_active:
+                summary: Always-active permission
+                value:
+                  user: "alice"
+                  account_id: "account-123"
+                  permission: "read"
+      responses:
+        "201":
+          description: Permission created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Permission'
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Query permissions
+      description: Returns all permissions for the caller's tenant. Optionally filtered by query parameters.
+      parameters:
+        - name: user
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: account_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: permission
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of permissions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Permission'
+        "401":
+          description: Missing or invalid Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/me:
+    get:
+      summary: Get caller's active permission actions
+      description: |
+        Returns a deduplicated, sorted list of permission action strings for the calling
+        user (identified via JWT `sub` claim) on the given account that are currently
+        active. A permission is active if its `status` is `Active` and its `schedule`
+        is null (always active) or contains an entry matching the current UTC weekday
+        and time.
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sorted list of unique active permission action strings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+                        example: ["admin", "read", "write"]
+        "400":
+          description: Missing account_id query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/{permission_id}:
+    parameters:
+      - name: permission_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get a permission by ID
+      responses:
+        "200":
+          description: Permission found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Permission'
+        "401":
+          description: Missing or invalid Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update a permission
+      description: Updates one or more fields of a permission. Only the provided fields are updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePermissionRequest'
+            examples:
+              update_permission_type:
+                value:
+                  permission: "write"
+              clear_schedule:
+                value:
+                  schedule: null
+      responses:
+        "200":
+          description: Permission updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Permission'
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a permission
+      description: |
+        Initiates an asynchronous delete. The permission status is set to `Deleting`
+        and an SQS message is dispatched to the worker Lambda, which calls the
+        provisioning URL. On success the record is removed from DynamoDB; on failure
+        the status is set to `FailedDeleting`.
+      responses:
+        "204":
+          description: Delete accepted — permission is now in Deleting state
+        "401":
+          description: Missing or invalid Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
