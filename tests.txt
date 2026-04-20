@@ -1,0 +1,116 @@
+=================================================================== short test summary info ====================================================================
+FAILED tests/e2e/test_e2e_permissions.py::test_unauthorized_without_token - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_unauthorized_with_bad_token - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_create_returns_201_with_creating_status - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_create_missing_fields_returns_400 - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_get_nonexistent_returns_404 - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_full_create_lifecycle - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_update_permission - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_update_nonexistent_returns_404 - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_delete_returns_204_and_transitions_to_deleting - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_delete_nonexistent_returns_404 - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_full_delete_lifecycle - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_query_permissions - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_get_user_permissions_returns_only_active - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_tenant_isolation - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_create_with_schedule - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+FAILED tests/e2e/test_e2e_permissions.py::test_create_without_schedule_is_always_active - requests.exceptions.ConnectionError: HTTPSConnectionPool(host='fghthefamc.execute-api.us-east-1.amazonaws.com', port=443): Max retries exceeded with url: /...
+========================================================== 16 failed, 65 passed, 39 warnings in 7.70s ==========================================================
+a1@MacBookPro sca_exercise_2026 (1) % poetry add moto --group dev
+The following packages are already present in the pyproject.toml and will be skipped:
+
+  - moto
+
+If you want to update it to the latest compatible version, you can use `poetry update package`.
+If you prefer to upgrade it to the latest available version, you can use `poetry add package@latest`.
+
+Nothing to add.
+a1@MacBookPro sca_exercise_2026 (1) % poetry run pytest tests/unit tests/integration -v
+===================================================================== test session starts ======================================================================
+platform darwin -- Python 3.13.13, pytest-9.0.2, pluggy-1.6.0 -- /Users/a1/Library/Caches/pypoetry/virtualenvs/permissions-service-vNCiWmr9-py3.13/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/a1/Desktop/Yochai/Projects/sca_exercise_2026 (1)
+configfile: pyproject.toml
+collected 65 items                                                                                                                                             
+
+tests/unit/test_jwt_parser.py::test_parse_valid_token PASSED                                                                                             [  1%]
+tests/unit/test_jwt_parser.py::test_parse_missing_header PASSED                                                                                          [  3%]
+tests/unit/test_jwt_parser.py::test_parse_empty_header PASSED                                                                                            [  4%]
+tests/unit/test_jwt_parser.py::test_parse_malformed_header PASSED                                                                                        [  6%]
+tests/unit/test_jwt_parser.py::test_parse_invalid_token PASSED                                                                                           [  7%]
+tests/unit/test_jwt_parser.py::test_extract_tenant_id_present PASSED                                                                                     [  9%]
+tests/unit/test_jwt_parser.py::test_extract_tenant_id_missing PASSED                                                                                     [ 10%]
+tests/unit/test_jwt_parser.py::test_extract_user_present PASSED                                                                                          [ 12%]
+tests/unit/test_jwt_parser.py::test_extract_user_missing PASSED                                                                                          [ 13%]
+tests/unit/test_permission_model.py::test_schedule_entry_roundtrip PASSED                                                                                [ 15%]
+tests/unit/test_permission_model.py::test_permission_create_generates_uuid PASSED                                                                        [ 16%]
+tests/unit/test_permission_model.py::test_permission_create_with_schedule PASSED                                                                         [ 18%]
+tests/unit/test_permission_model.py::test_permission_to_dict_without_schedule PASSED                                                                     [ 20%]
+tests/unit/test_permission_model.py::test_permission_to_dynamo_item_omits_schedule_key_when_none PASSED                                                  [ 21%]
+tests/unit/test_permission_model.py::test_permission_from_dynamo_item_without_schedule PASSED                                                            [ 23%]
+tests/unit/test_permission_model.py::test_permission_from_dynamo_item_defaults_status_to_active_when_missing PASSED                                      [ 24%]
+tests/unit/test_permission_model.py::test_permission_from_dynamo_item_with_schedule PASSED                                                               [ 26%]
+tests/unit/test_permission_model.py::test_permission_status_is_str PASSED                                                                                [ 27%]
+tests/unit/test_permissions_bl.py::test_create_permission_calls_repo_put PASSED                                                                          [ 29%]
+tests/unit/test_permissions_bl.py::test_create_permission_sends_sqs_message PASSED                                                                       [ 30%]
+tests/unit/test_permissions_bl.py::test_create_permission_validation_error PASSED                                                                        [ 32%]
+tests/unit/test_permissions_bl.py::test_get_permission_found PASSED                                                                                      [ 33%]
+tests/unit/test_permissions_bl.py::test_get_permission_not_found PASSED                                                                                  [ 35%]
+tests/unit/test_permissions_bl.py::test_update_permission_not_found PASSED                                                                               [ 36%]
+tests/unit/test_permissions_bl.py::test_update_permission_calls_repo_update PASSED                                                                       [ 38%]
+tests/unit/test_permissions_bl.py::test_delete_permission_not_found PASSED                                                                               [ 40%]
+tests/unit/test_permissions_bl.py::test_delete_permission_updates_status_to_deleting PASSED                                                              [ 41%]
+tests/unit/test_permissions_bl.py::test_delete_permission_sends_sqs_message PASSED                                                                       [ 43%]
+tests/unit/test_permissions_bl.py::test_query_permissions_passes_filters PASSED                                                                          [ 44%]
+tests/unit/test_process_permission.py::test_create_action_http_success_sets_active PASSED                                                                [ 46%]
+tests/unit/test_process_permission.py::test_create_action_http_failure_sets_failed_creating PASSED                                                       [ 47%]
+tests/unit/test_process_permission.py::test_delete_action_http_success_deletes_record PASSED                                                             [ 49%]
+tests/unit/test_process_permission.py::test_delete_action_http_failure_sets_failed_deleting PASSED                                                       [ 50%]
+tests/unit/test_process_permission.py::test_http_post_called_with_permission_data PASSED                                                                 [ 52%]
+tests/unit/test_time_filtering.py::test_always_active_when_no_schedule PASSED                                                                            [ 53%]
+tests/unit/test_time_filtering.py::test_active_in_window PASSED                                                                                          [ 55%]
+tests/unit/test_time_filtering.py::test_inactive_outside_window PASSED                                                                                   [ 56%]
+tests/unit/test_time_filtering.py::test_inactive_wrong_weekday PASSED                                                                                    [ 58%]
+tests/unit/test_time_filtering.py::test_overnight_window_active_before_midnight PASSED                                                                   [ 60%]
+tests/unit/test_time_filtering.py::test_overnight_window_active_after_midnight PASSED                                                                    [ 61%]
+tests/unit/test_time_filtering.py::test_overnight_window_inactive_in_gap PASSED                                                                          [ 63%]
+tests/unit/test_time_filtering.py::test_active_at_exact_start_time PASSED                                                                                [ 64%]
+tests/unit/test_time_filtering.py::test_active_at_exact_end_time PASSED                                                                                  [ 66%]
+tests/unit/test_time_filtering.py::test_multiple_schedule_entries_one_matches PASSED                                                                     [ 67%]
+tests/unit/test_validation.py::test_validate_create_success PASSED                                                                                       [ 69%]
+tests/unit/test_validation.py::test_validate_create_success_with_schedule PASSED                                                                         [ 70%]
+tests/unit/test_validation.py::test_validate_create_missing_field PASSED                                                                                 [ 72%]
+tests/unit/test_validation.py::test_validate_create_empty_user PASSED                                                                                    [ 73%]
+tests/unit/test_validation.py::test_validate_create_empty_schedule_list PASSED                                                                           [ 75%]
+tests/unit/test_validation.py::test_validate_create_schedule_invalid_weekday PASSED                                                                      [ 76%]
+tests/unit/test_validation.py::test_validate_create_schedule_invalid_time_format PASSED                                                                  [ 78%]
+tests/unit/test_validation.py::test_validate_update_success PASSED                                                                                       [ 80%]
+tests/unit/test_validation.py::test_validate_update_empty_body PASSED                                                                                    [ 81%]
+tests/unit/test_validation.py::test_validate_update_unknown_fields_only PASSED                                                                           [ 83%]
+tests/unit/test_validation.py::test_validate_update_schedule_none_allowed PASSED                                                                         [ 84%]
+tests/unit/test_validation.py::test_validate_update_invalid_schedule PASSED                                                                              [ 86%]
+tests/integration/test_permissions_api.py::test_create_and_get_permission PASSED                                                                         [ 87%]
+tests/integration/test_permissions_api.py::test_create_missing_fields_returns_400 PASSED                                                                 [ 89%]
+tests/integration/test_permissions_api.py::test_get_nonexistent_permission_returns_404 PASSED                                                            [ 90%]
+tests/integration/test_permissions_api.py::test_update_permission PASSED                                                                                 [ 92%]
+tests/integration/test_permissions_api.py::test_delete_permission_returns_204_and_sets_deleting_status PASSED                                            [ 93%]
+tests/integration/test_permissions_api.py::test_delete_nonexistent_permission_returns_404 PASSED                                                         [ 95%]
+tests/integration/test_permissions_api.py::test_query_permissions_with_filter PASSED                                                                     [ 96%]
+tests/integration/test_permissions_api.py::test_unauthorized_when_no_auth_header PASSED                                                                  [ 98%]
+tests/integration/test_permissions_api.py::test_get_user_permissions_returns_active_only PASSED                                                          [100%]
+
+======================================================================= warnings summary =======================================================================
+tests/unit/test_jwt_parser.py::test_parse_valid_token
+tests/integration/test_permissions_api.py::test_create_and_get_permission
+tests/integration/test_permissions_api.py::test_create_missing_fields_returns_400
+tests/integration/test_permissions_api.py::test_get_nonexistent_permission_returns_404
+tests/integration/test_permissions_api.py::test_update_permission
+tests/integration/test_permissions_api.py::test_delete_permission_returns_204_and_sets_deleting_status
+tests/integration/test_permissions_api.py::test_delete_nonexistent_permission_returns_404
+tests/integration/test_permissions_api.py::test_query_permissions_with_filter
+tests/integration/test_permissions_api.py::test_get_user_permissions_returns_active_only
+  /Users/a1/Library/Caches/pypoetry/virtualenvs/permissions-service-vNCiWmr9-py3.13/lib/python3.13/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 6 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================================================ 65 passed, 9 warnings in 2.30s ================================================================
