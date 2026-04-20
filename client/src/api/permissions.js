@@ -16,12 +16,10 @@ export function createApi(baseUrl, token) {
   }
 
   return {
-    listPermissions(filters = {}) {
-      const params = new URLSearchParams(
-        Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
-      );
-      const qs = params.toString() ? `?${params}` : '';
-      return request(`/permissions${qs}`);
+    listPermissions({ limit = 50, cursor } = {}) {
+      const params = new URLSearchParams({ limit });
+      if (cursor) params.set('cursor', cursor);
+      return request(`/permissions?${params}`);
     },
 
     getPermission(id) {

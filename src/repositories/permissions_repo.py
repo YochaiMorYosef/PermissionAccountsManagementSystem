@@ -46,23 +46,37 @@ class PermissionsRepo:
             Key={"tenant_id": tenant_id, "permission_id": permission_id}
         )
 
-    def query(self, tenant_id: str, filters: dict | None = None) -> list[Permission]:
+    def query(
+        self,
+        tenant_id: str,
+        filters: dict | None = None,
+        limit: int | None = None,
+        exclusive_start_key: dict | None = None,
+    ) -> tuple[list[Permission], dict | None]:
         key_condition = Key("tenant_id").eq(tenant_id)
         kwargs = {"KeyConditionExpression": key_condition}
         if filters:
-            filter_expressions = []
-            for key, value in filters.items():
-                filter_expressions.append(Attr(key).eq(value))
+            filter_expressions = [Attr(k).eq(v) for k, v in filters.items()]
             combined = filter_expressions[0]
             for expr in filter_expressions[1:]:
                 combined = combined & expr
             kwargs["FilterExpression"] = combined
+        if limit is not None:
+            # Single-page call — return items and the cursor for the next page
+            if exclusive_start_key:
+                kwargs["ExclusiveStartKey"] = exclusive_start_key
+            kwargs["Limit"] = limit
+            response = self._table.query(**kwargs)
+            items = [Permission.from_dynamo_item(i) for i in response.get("Items", [])]
+            return items, response.get("LastEvaluatedKey")
+        # No limit — exhaust all pages
         items = []
         while True:
+            if exclusive_start_key:
+                kwargs["ExclusiveStartKey"] = exclusive_start_key
             response = self._table.query(**kwargs)
             items.extend(response.get("Items", []))
-            last_key = response.get("LastEvaluatedKey")
-            if not last_key:
+            exclusive_start_key = response.get("LastEvaluatedKey")
+            if not exclusive_start_key:
                 break
-            kwargs["ExclusiveStartKey"] = last_key
-        return [Permission.from_dynamo_item(item) for item in items]
+        return [Permission.from_dynamo_item(i) for i in items], None

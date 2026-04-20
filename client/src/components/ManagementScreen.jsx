@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import PermissionForm from './PermissionForm';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const PAGE_SIZE = 50;
 
 function formatSchedule(schedule) {
   if (!schedule?.length) return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>always active</span>;
@@ -18,43 +19,80 @@ function shortId(id = '') {
 
 export default function ManagementScreen({ api }) {
   const [permissions, setPermissions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [loading, setLoading] = useState(false);      // initial load
+  const [loadingMore, setLoadingMore] = useState(false); // subsequent pages
   const [error, setError] = useState(null);
-  const [formMode, setFormMode] = useState(null); // null | 'create' | <permission object>
+  const [formMode, setFormMode] = useState(null);
+  const sentinelRef = useRef(null);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  // ── Fetch a page and either replace or append ──────────────────────────
+  const fetchPage = useCallback(async (cursor, append) => {
+    append ? setLoadingMore(true) : setLoading(true);
     setError(null);
     try {
-      const data = await api.listPermissions();
-      setPermissions(data ?? []);
+      const { items, next_cursor } = await api.listPermissions({ limit: PAGE_SIZE, cursor });
+      setPermissions(prev => append ? [...prev, ...(items ?? [])] : (items ?? []));
+      setNextCursor(next_cursor ?? null);
     } catch (e) {
       setError(e.message);
     } finally {
-      setLoading(false);
+      append ? setLoadingMore(false) : setLoading(false);
     }
   }, [api]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  // Initial load
+  useEffect(() => { fetchPage(null, false); }, [fetchPage]);
 
+  // ── Infinite scroll via IntersectionObserver ───────────────────────────
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && nextCursor && !loadingMore) {
+          fetchPage(nextCursor, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [nextCursor, loadingMore, fetchPage]);
+
+  // ── Optimistic delete ──────────────────────────────────────────────────
   async function handleDelete(perm) {
     if (!window.confirm(`Delete permission ${perm.permission_id}?`)) return;
+
+    // Mark as Deleting immediately
+    setPermissions(prev =>
+      prev.map(p => p.permission_id === perm.permission_id ? { ...p, status: 'Deleting' } : p)
+    );
+
     try {
       await api.deletePermission(perm.permission_id);
-      fetchAll();
+      setPermissions(prev => prev.filter(p => p.permission_id !== perm.permission_id));
     } catch (e) {
+      // Revert on failure
+      setPermissions(prev =>
+        prev.map(p => p.permission_id === perm.permission_id ? { ...p, status: perm.status } : p)
+      );
       setError(e.message);
     }
   }
 
+  // ── Create / edit ──────────────────────────────────────────────────────
   async function handleFormSubmit(payload) {
     if (formMode === 'create') {
-      await api.createPermission(payload);
+      const created = await api.createPermission(payload);
+      setPermissions(prev => [created, ...prev]);
     } else {
-      await api.updatePermission(formMode.permission_id, payload);
+      const updated = await api.updatePermission(formMode.permission_id, payload);
+      setPermissions(prev =>
+        prev.map(p => p.permission_id === formMode.permission_id ? updated : p)
+      );
     }
     setFormMode(null);
-    fetchAll();
   }
 
   return (
@@ -63,7 +101,7 @@ export default function ManagementScreen({ api }) {
       {formMode !== null && (
         <div className="card">
           <div className="card-title">
-            {formMode === 'create' ? '+ New Permission' : `Edit · ${shortId(formMode.permission_id)}`}
+            {formMode === 'create' ? '+ New Permission' : `Edit -> ${permissions.find(p => p.permission_id === formMode.permission_id)?.user || ''}`}
           </div>
           <PermissionForm
             initial={formMode === 'create' ? null : formMode}
@@ -79,11 +117,13 @@ export default function ManagementScreen({ api }) {
           <div className="card-title" style={{ marginBottom: 0 }}>
             Permissions
             <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>
-              ({permissions.length})
+              ({permissions.length}{nextCursor ? '+' : ''})
             </span>
           </div>
           <div className="toolbar-actions">
-            <button className="btn btn-ghost btn-sm" onClick={fetchAll} disabled={loading}>Refresh</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => fetchPage(null, false)} disabled={loading}>
+              Refresh
+            </button>
             <button className="btn btn-primary btn-sm" onClick={() => setFormMode('create')}>+ New</button>
           </div>
         </div>
@@ -116,7 +156,7 @@ export default function ManagementScreen({ api }) {
               </thead>
               <tbody>
                 {permissions.map((p) => (
-                  <tr key={p.permission_id}>
+                  <tr key={p.permission_id} style={{ opacity: p.status === 'Deleting' ? 0.45 : 1, transition: 'opacity .2s' }}>
                     <td className="id-cell">{shortId(p.permission_id)}</td>
                     <td><strong>{p.user}</strong></td>
                     <td>{p.account_id}</td>
@@ -125,14 +165,37 @@ export default function ManagementScreen({ api }) {
                     <td>{formatSchedule(p.schedule)}</td>
                     <td>
                       <div className="actions">
-                        <button className="btn btn-sm" onClick={() => setFormMode(p)}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p)}>Delete</button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => setFormMode(p)}
+                          disabled={p.status === 'Deleting'}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(p)}
+                          disabled={p.status === 'Deleting'}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} style={{ padding: '12px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+              {loadingMore && (
+                <>
+                  <span className="spinner" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--primary)', marginRight: 6 }} />
+                  Loading more…
+                </>
+              )}
+              {!loadingMore && !nextCursor && permissions.length > 0 && 'All permissions loaded'}
+            </div>
           </div>
         )}
       </div>

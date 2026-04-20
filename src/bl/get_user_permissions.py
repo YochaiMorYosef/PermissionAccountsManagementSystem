@@ -7,7 +7,7 @@ from src.bl.time_filtering import is_permission_active
 
 def get_user_permissions(tenant_id: str, user: str, account_id: str, repo: PermissionsRepo) -> list[Permission]:
     filters = {"user": user, "account_id": account_id}
-    permissions = repo.query(tenant_id, filters)
+    permissions, _ = repo.query(tenant_id, filters)
     now = datetime.now(timezone.utc)
     return [
         p for p in permissions
