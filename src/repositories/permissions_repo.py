@@ -57,5 +57,12 @@ class PermissionsRepo:
             for expr in filter_expressions[1:]:
                 combined = combined & expr
             kwargs["FilterExpression"] = combined
-        response = self._table.query(**kwargs)
-        return [Permission.from_dynamo_item(item) for item in response.get("Items", [])]
+        items = []
+        while True:
+            response = self._table.query(**kwargs)
+            items.extend(response.get("Items", []))
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            kwargs["ExclusiveStartKey"] = last_key
+        return [Permission.from_dynamo_item(item) for item in items]
