@@ -21,20 +21,19 @@ export default function ManagementScreen({ api }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formMode, setFormMode] = useState(null); // null | 'create' | <permission object>
-  const [filters, setFilters] = useState({ user: '', account_id: '', permission: '' });
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.listPermissions(filters);
+      const data = await api.listPermissions();
       setPermissions(data ?? []);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [api, filters]);
+  }, [api]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -60,31 +59,6 @@ export default function ManagementScreen({ api }) {
 
   return (
     <div>
-      {/* Filter card */}
-      <div className="card">
-        <div className="card-title">Filters</div>
-        <div className="form-grid">
-          {['user', 'account_id', 'permission'].map((f) => (
-            <div className="form-field" key={f}>
-              <label>{f.replace('_', ' ')}</label>
-              <input
-                value={filters[f]}
-                onChange={(e) => setFilters((prev) => ({ ...prev, [f]: e.target.value }))}
-                placeholder={`Filter by ${f.replace('_', ' ')}`}
-              />
-            </div>
-          ))}
-        </div>
-        <div className="form-actions">
-          <button className="btn btn-primary" onClick={fetchAll} disabled={loading}>
-            {loading ? <><span className="spinner" />Searching…</> : 'Search'}
-          </button>
-          <button className="btn btn-ghost" onClick={() => setFilters({ user: '', account_id: '', permission: '' })}>
-            Clear
-          </button>
-        </div>
-      </div>
-
       {/* Create / Edit form */}
       {formMode !== null && (
         <div className="card">
@@ -116,7 +90,12 @@ export default function ManagementScreen({ api }) {
 
         {error && <div className="msg-error">{error}</div>}
 
-        {!loading && permissions.length === 0 ? (
+        {loading ? (
+          <div className="msg-empty">
+            <span className="spinner" style={{ width: 24, height: 24, borderColor: 'var(--border)', borderTopColor: 'var(--primary)' }} />
+            <div style={{ marginTop: 10 }}>Loading permissions…</div>
+          </div>
+        ) : permissions.length === 0 ? (
           <div className="msg-empty">
             <div className="empty-icon">🔑</div>
             No permissions found. Create one to get started.

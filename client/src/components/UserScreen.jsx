@@ -28,15 +28,6 @@ export default function UserScreen({ api, identity }) {
       <div className="card">
         <div className="card-title">My Active Permissions</div>
 
-        <div className="info-bar">
-          Fetching permissions for
-          <strong>{identity.sub}</strong>
-          on tenant
-          <strong>{identity.tenant_id}</strong>
-          — only <span className={`badge badge-Active`}>Active</span> permissions
-          matching the current time window are returned.
-        </div>
-
         <form onSubmit={handleFetch}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
             <div className="form-field" style={{ flex: 1, maxWidth: 360 }}>
