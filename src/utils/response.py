@@ -44,6 +44,10 @@ def unauthorized(message: str = "Unauthorized") -> dict:
     return error(message, 401)
 
 
+def forbidden(message: str = "Forbidden") -> dict:
+    return error(message, 403)
+
+
 def not_found(message: str = "Not found") -> dict:
     return error(message, 404)
 

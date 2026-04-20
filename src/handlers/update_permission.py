@@ -2,7 +2,8 @@ import json
 from src.bl.update_permission import update_permission
 from src.models.exceptions import PermissionNotFoundError
 from src.repositories.permissions_repo import PermissionsRepo
-from src.utils.jwt_parser import parse_jwt_claims, extract_tenant_id, JWTParseError
+from src.utils.auth import require_admin, AuthorizationError
+from src.utils.jwt_parser import JWTParseError
 from src.utils.validation import ValidationError
 from src.utils import response as res
 from src.utils.logger import get_logger
@@ -12,12 +13,11 @@ logger = get_logger(__name__)
 
 def handler(event, context):
     try:
-        auth_header = (event.get("headers") or {}).get("Authorization") or \
-                      (event.get("headers") or {}).get("authorization")
-        claims = parse_jwt_claims(auth_header)
-        tenant_id = extract_tenant_id(claims)
+        _, tenant_id = require_admin(event)
     except JWTParseError as e:
         return res.unauthorized(str(e))
+    except AuthorizationError as e:
+        return res.forbidden(str(e))
 
     permission_id = (event.get("pathParameters") or {}).get("permission_id")
     if not permission_id:
