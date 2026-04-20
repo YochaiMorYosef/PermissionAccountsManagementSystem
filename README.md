@@ -10,6 +10,7 @@ All API endpoints require a JWT Bearer token. The `tenant_id` is always resolved
 
 Create and delete operations are asynchronous — the API writes to DynamoDB with a transitional `status`, then dispatches an SQS message to a worker Lambda that calls a configurable provisioning URL.
 
+
 ## Architecture
 
 ```
