@@ -69,14 +69,6 @@ class PermissionsRepo:
             response = self._table.query(**kwargs)
             items = [Permission.from_dynamo_item(i) for i in response.get("Items", [])]
             return items, response.get("LastEvaluatedKey")
-        # No limit — exhaust all pages
-        items = []
-        while True:
-            if exclusive_start_key:
-                kwargs["ExclusiveStartKey"] = exclusive_start_key
-            response = self._table.query(**kwargs)
-            items.extend(response.get("Items", []))
-            exclusive_start_key = response.get("LastEvaluatedKey")
-            if not exclusive_start_key:
-                break
-        return [Permission.from_dynamo_item(i) for i in items], None
+        # No limit — exhaust all
+        response = self._table.query(**kwargs)
+        return [Permission.from_dynamo_item(item) for item in response.get("Items", [])], None
