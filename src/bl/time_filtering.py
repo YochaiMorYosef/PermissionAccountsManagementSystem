@@ -30,15 +30,15 @@ def is_permission_active(permission: Permission, now: datetime) -> bool:
             next_weekday = (entry.weekday + 1) % 7
             if current_weekday == entry.weekday:
                 # print("    Overnight window: current weekday is start weekday, checking if time is after start")
-                if current_time >= start:
-                    # print("    Time is after start -> active")
+                if current_time >= start or current_time <= end:
                     return True
+                
+            if  current_time <= end:
+                return True
             elif current_weekday == next_weekday:
                 # print("    Overnight window: current weekday is end weekday, checking if time is before end")
                 if current_time <= end:
                     # print("    Time is before end -> active")
                     return True
-            # else:
-                # print("    Overnight window: current weekday does not match either start or end weekday, skipping")
             
     return False

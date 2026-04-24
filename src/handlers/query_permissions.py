@@ -9,6 +9,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+ALLOWED_FILTER_PARAMS = {"user", "account_id", "permission"}
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 100
 
@@ -33,6 +34,7 @@ def handler(event, context):
         return res.forbidden(str(e))
 
     query_params = event.get("queryStringParameters") or {}
+    filters = {k: v for k, v in query_params.items() if k in ALLOWED_FILTER_PARAMS and v}
 
     try:
         limit = min(int(query_params.get("limit", DEFAULT_LIMIT)), MAX_LIMIT)
@@ -45,12 +47,15 @@ def handler(event, context):
     try:
         repo = PermissionsRepo()
         permissions, last_key = query_permissions(
-            tenant_id, None, repo, limit=limit, exclusive_start_key=exclusive_start_key
+            tenant_id, filters or None, repo, limit=limit, exclusive_start_key=exclusive_start_key
         )
-        return res.success({
-            "items": [p.to_dict() for p in permissions],
-            "next_cursor": _encode_cursor(last_key) if last_key else None,
-        })
+        has_pagination_params = "limit" in query_params or "cursor" in query_params
+        if has_pagination_params:
+            return res.success({
+                "items": [p.to_dict() for p in permissions],
+                "next_cursor": _encode_cursor(last_key) if last_key else None,
+            })
+        return res.success([p.to_dict() for p in permissions])
     except Exception:
         logger.exception("Unexpected error in query_permissions")
         return res.internal_error()
